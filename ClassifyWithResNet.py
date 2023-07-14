@@ -90,21 +90,21 @@ model.add(Dense(7, activation='softmax'))
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-# early_stopping = EarlyStopping(monitor='val_accuracy', patience=10)
-# model_checkpoint = ModelCheckpoint('weights2.hdf5', monitor='val_accuracy', save_best_only=True)
+early_stopping = EarlyStopping(monitor='val_accuracy', patience=10)
+model_checkpoint = ModelCheckpoint('weights2.hdf5', monitor='val_accuracy', save_best_only=True)
 
-# history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=1000, batch_size=32, callbacks=[early_stopping, model_checkpoint])
+history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=1000, batch_size=32, callbacks=[early_stopping, model_checkpoint])
 
-# fig1 = plt.gcf()
-# plt.plot(history.history['accuracy'])
-# plt.plot(history.history['val_accuracy'])
-# plt.axis(ymin=0.4,ymax=1)
-# plt.grid()
-# plt.title('Model Accuracy')
-# plt.ylabel('Accuracy')
-# plt.xlabel('Epochs')
-# plt.legend(['train', 'validation'])
-# plt.show()
+fig1 = plt.gcf()
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.axis(ymin=0.4,ymax=1)
+plt.grid()
+plt.title('Model Accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epochs')
+plt.legend(['train', 'validation'])
+plt.show()
 
 
 # Load the best weights from the checkpoint
