@@ -106,7 +106,6 @@ plt.xlabel('Epochs')
 plt.legend(['train', 'validation'])
 plt.show()
 
-
 # Load the best weights from the checkpoint
 model.load_weights('weights2.hdf5')
 
@@ -157,7 +156,6 @@ for label in true_labels:
     elif label == 6:
         true_labels_text.append('pear')
     
-
 # Creating DataFrame to Compare few Predicted Labels with True Labels
 comparison_df2 = pd.DataFrame({"Predictions": predicted_labels_text, "True Values": true_labels_text})
 print(comparison_df2.iloc[15:30, :])
