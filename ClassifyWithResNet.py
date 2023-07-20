@@ -89,7 +89,7 @@ early_stopping = EarlyStopping(monitor='val_accuracy', patience=10)
 model_checkpoint = ModelCheckpoint('weights2.hdf5', monitor='val_accuracy', save_best_only=True)
 
 # Training the model using the ImageDataGenerators and saving the training history
-history = model.fit(train_generator, validation_data=validation_generator, epochs=1, batch_size=32, callbacks=[early_stopping, model_checkpoint])
+history = model.fit(train_generator, validation_data=validation_generator, epochs=1000, batch_size=32, callbacks=[early_stopping, model_checkpoint])
 
 # Plotting the training and validation accuracy over epochs
 fig1 = plt.gcf()
