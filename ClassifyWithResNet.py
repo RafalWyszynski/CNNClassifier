@@ -1,104 +1,101 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import os
-import cv2
 from keras.models import Sequential
 from keras.layers import Dense, Flatten
 import numpy as np
+import os
 import pandas as pd
-from keras.utils import to_categorical
-from sklearn.model_selection import train_test_split
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.preprocessing.image import ImageDataGenerator
 
-training_files = 'train'
-testing_files = 'test'
-validation_files = 'validation'
-classes = ['apple', 'banana', 'kiwi', 'orange', 'watermelon', 'mango', 'pear']
+# Setting seed for reproducibility
+np.random.seed(42) 
 
-images = []
-labels = []
-val_images = []
-val_labels = []
+# Defining paths to folders with train, test, and validation data
+train_data = 'train'
+test_data = 'test'
+validation_data = 'validation'
+classes = os.listdir(train_data)
 
-for fruit in classes:
-    
-    #Creating paths for each fruit
-    training_fruit_path = os.path.join(training_files, fruit)
-    testing_fruit_path = os.path.join(testing_files, fruit)
-    validation_fruit_path = os.path.join(validation_files, fruit)
-    
-    #Checking the number of images in each folder
-    training_images_amount = os.listdir(training_fruit_path)
-    testing_images_amount = os.listdir(testing_fruit_path)
-    validation_images_amount = os.listdir(validation_fruit_path)
-    
-    #Adding images and labels to lists
-    for fruit_image in training_images_amount:
-        photo_path = os.path.join(training_fruit_path, fruit_image)
-        image = plt.imread(photo_path)
-        image = image[:,:,:3]
-        image = cv2.resize(image, (224,224))
-        images.append(image)
-        labels.append(fruit)
-        
-    for fruit_image in testing_images_amount:
-        photo_path = os.path.join(testing_fruit_path, fruit_image)
-        image = plt.imread(photo_path)
-        image = image[:,:,:3]
-        image = cv2.resize(image, (224,224))
-        images.append(image)
-        labels.append(fruit)
-        
-    for fruit_image in validation_images_amount:
-        photo_path = os.path.join(validation_fruit_path, fruit_image)
-        image = plt.imread(photo_path)
-        image = image[:,:,:3]
-        image = cv2.resize(image, (224,224))
-        val_images.append(image)
-        val_labels.append(fruit)                        
+# Setting image width and height
+img_width, img_height = 224, 224
 
-#Converting images and their labels to NumPy arrays
-images = np.array(images)     
-labels = np.array(labels)
-val_images = np.array(val_images)
-val_labels = np.array(val_labels)
+# Creating ImageDataGenerator for training data with data augmentation
+train_datagen = ImageDataGenerator()
+train_generator = train_datagen.flow_from_directory(
+    train_data,
+    target_size=(img_width, img_height),
+    batch_size=32,
+    class_mode='categorical',
+    classes=classes,
+    shuffle=True
+)
 
-#Converting fruits names using One-Hot Encoding
-labels = pd.Categorical(labels).codes
-labels = to_categorical(labels)
-val_labels = pd.Categorical(val_labels).codes
-val_labels = to_categorical(val_labels)
-X_train, X_test, y_train, y_test = train_test_split(images, labels, test_size=0.2, stratify=labels)
+# Creating ImageDataGenerator for validation data
+validation_datagen = ImageDataGenerator()
+validation_generator = validation_datagen.flow_from_directory(
+    validation_data,
+    target_size=(img_width, img_height),
+    batch_size=32,
+    class_mode='categorical',
+    classes=classes,
+    shuffle=True
+)
 
+# Creating ImageDataGenerator for test data (no data augmentation)
+test_datagen = ImageDataGenerator()
+test_generator = test_datagen.flow_from_directory(
+    test_data,
+    target_size=(img_width, img_height),
+    batch_size=32,
+    class_mode='categorical',
+    classes=classes,
+    shuffle=False 
+)
+
+# Creating a Sequential model
 model = Sequential()
 
+# Using a pretrained ResNet50 model with weights from 'imagenet'
 pretrained_model = tf.keras.applications.resnet50.ResNet50(
                     include_top=False,
                     weights='imagenet',
-                    input_shape=(224,224,3),
+                    input_shape=(224, 224, 3),
                     input_tensor=None,
                     pooling=None,
                     classes=7)
 
+# Freezing the layers of the pretrained model so they won't be trained
 for layer in pretrained_model.layers:
-        layer.trainable=False
+    layer.trainable = False
 
+# Adding the pretrained ResNet50 model to our sequential model
 model.add(pretrained_model)
+
+# Flattening the output of the pretrained model
 model.add(Flatten())
+
+# Adding a dense layer with 1024 units and ReLU activation
 model.add(Dense(1024, activation='relu'))
+
+# Adding the output layer with 7 units (one for each fruit class) and softmax activation
 model.add(Dense(7, activation='softmax'))
 
+# Compiling the model with the Adam optimizer and categorical_crossentropy loss
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+# Setting up callbacks for early stopping and model checkpointing
 early_stopping = EarlyStopping(monitor='val_accuracy', patience=10)
 model_checkpoint = ModelCheckpoint('weights2.hdf5', monitor='val_accuracy', save_best_only=True)
 
-history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=1000, batch_size=32, callbacks=[early_stopping, model_checkpoint])
+# Training the model using the ImageDataGenerators and saving the training history
+history = model.fit(train_generator, validation_data=validation_generator, epochs=1, batch_size=32, callbacks=[early_stopping, model_checkpoint])
 
+# Plotting the training and validation accuracy over epochs
 fig1 = plt.gcf()
 plt.plot(history.history['accuracy'])
 plt.plot(history.history['val_accuracy'])
-plt.axis(ymin=0.4,ymax=1)
+plt.axis(ymin=0.4, ymax=1)
 plt.grid()
 plt.title('Model Accuracy')
 plt.ylabel('Accuracy')
@@ -106,56 +103,26 @@ plt.xlabel('Epochs')
 plt.legend(['train', 'validation'])
 plt.show()
 
-# Load the best weights from the checkpoint
+# Load the best weights from the checkpoint (highest validation accuracy)
 model.load_weights('weights2.hdf5')
 
-# Evaluating model
-loss, accuracy = model.evaluate(val_images, val_labels)
+# Evaluating the model on the test data
+loss, accuracy = model.evaluate(test_generator)
 
-# Predicting values for Validation Images
-predictions = model.predict(val_images)
+# Making predictions on the test data
+predictions = model.predict(test_generator)
 
-# Choosing prediction with highest value
+# Choosing the class label with the highest probability as the predicted class
 predicted_labels = np.argmax(predictions, axis=1)
-    
-# Converting One-Hot Encoded labels back to normal array
-true_labels = np.argmax(val_labels, axis=1)
 
-# Converting numerical labels to fruits names
-predicted_labels_text = []
-for label in predicted_labels:
-    if label == 0:
-        predicted_labels_text.append('apple')
-    elif label == 1:
-        predicted_labels_text.append('banana')
-    elif label == 2:
-        predicted_labels_text.append('kiwi')
-    elif label == 3:
-        predicted_labels_text.append('orange')
-    elif label == 4:
-        predicted_labels_text.append('watermelon')
-    elif label == 5:
-        predicted_labels_text.append('mango')
-    elif label == 6:
-        predicted_labels_text.append('pear')
+# Extracting true labels from the test generator
+true_labels = test_generator.classes
 
-true_labels_text = []
-for label in true_labels:
-    if label == 0:
-        true_labels_text.append('apple')
-    elif label == 1:
-        true_labels_text.append('banana')
-    elif label == 2:
-        true_labels_text.append('kiwi')
-    elif label == 3:
-        true_labels_text.append('orange')
-    elif label == 4:
-        true_labels_text.append('watermelon')
-    elif label == 5:
-        true_labels_text.append('mango')
-    elif label == 6:
-        true_labels_text.append('pear')
+# Converting numerical labels to fruit names
+predicted_labels_text = [classes[label] for label in predicted_labels]
+true_labels_text = [classes[label] for label in true_labels]
     
-# Creating DataFrame to Compare few Predicted Labels with True Labels
+# Creating a DataFrame to compare predicted labels with true labels for a subset of data
 comparison_df2 = pd.DataFrame({"Predictions": predicted_labels_text, "True Values": true_labels_text})
-print(comparison_df2.iloc[15:30, :])
+random_rows = comparison_df2.sample(n=30)
+print(random_rows)
